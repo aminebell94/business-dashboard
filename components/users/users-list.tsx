@@ -20,7 +20,7 @@ export function UsersList() {
   const queryClient = useQueryClient()
 
   const {
-    data: users,
+    data,
     isLoading,
     error,
     refetch,
@@ -29,6 +29,8 @@ export function UsersList() {
     queryFn: getUsers,
     retry: 2,
   })
+
+  const users = Array.isArray(data) ? data : (data as any)?.users ?? []
 
   // Mock mutation for updating user role
   const updateUserRoleMutation = useMutation({

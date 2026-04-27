@@ -24,41 +24,47 @@ function pickHeaders(from: Headers) {
 }
 
 async function proxy(req: NextRequest, method: string, ctx: { params: Promise<{ path: string[] }> }) {
-  const url = await buildTargetURL(req, ctx.params);
-  
-  // Get JWT from cookie OR Authorization header (frontend uses header)
-  const cookieJwt = req.cookies.get("strapi_jwt")?.value;
-  const authHeader = req.headers.get("authorization");
-  const headerJwt = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : null;
-  const jwt = headerJwt || cookieJwt;
-  
-  const init: RequestInit = {
-    method,
-    headers: {
-      ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
-      // Forward JSON content-type only when sending a body
-      ...(method === "POST" || method === "PUT" || method === "PATCH"
-        ? { "Content-Type": req.headers.get("content-type") ?? "application/json" }
-        : {}),
-    },
-    body:
-      method === "POST" || method === "PUT" || method === "PATCH" || method === "DELETE"
-        ? (await req.text()) || undefined // DELETE may have no body
-        : undefined,
-    // You can add keepalive or next: { revalidate: 0 } if needed
-  };
+  try {
+    const url = await buildTargetURL(req, ctx.params);
+    
+    // Get JWT from cookie OR Authorization header (frontend uses header)
+    const cookieJwt = req.cookies.get("strapi_jwt")?.value;
+    const authHeader = req.headers.get("authorization");
+    const headerJwt = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : null;
+    const jwt = headerJwt || cookieJwt;
+    
+    const init: RequestInit = {
+      method,
+      headers: {
+        ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
+        // Forward JSON content-type only when sending a body
+        ...(method === "POST" || method === "PUT" || method === "PATCH"
+          ? { "Content-Type": req.headers.get("content-type") ?? "application/json" }
+          : {}),
+      },
+      body:
+        method === "POST" || method === "PUT" || method === "PATCH" || method === "DELETE"
+          ? (await req.text()) || undefined // DELETE may have no body
+          : undefined,
+    };
 
-  const r = await fetch(url, init);
-  const headers = pickHeaders(r.headers);
+    const r = await fetch(url, init);
+    const headers = pickHeaders(r.headers);
 
-  // No body allowed for 204/304 — return null body
-  if (r.status === 204 || r.status === 304) {
-    return new NextResponse(null, { status: r.status, headers });
+    // No body allowed for 204/304 — return null body
+    if (r.status === 204 || r.status === 304) {
+      return new NextResponse(null, { status: r.status, headers });
+    }
+
+    // Stream through for everything else
+    return new NextResponse(r.body, { status: r.status, headers });
+  } catch (error: any) {
+    console.error(`[Strapi Proxy] Error: ${error.message}`);
+    return NextResponse.json(
+      { error: { status: 502, name: "ProxyError", message: `Backend unreachable: ${error.message}` } },
+      { status: 502 }
+    );
   }
-
-  // Stream through for everything else
-  // If you prefer to buffer: const buf = await r.arrayBuffer();
-  return new NextResponse(r.body, { status: r.status, headers });
 }
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ path: string[] }> }) {

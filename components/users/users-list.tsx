@@ -71,8 +71,11 @@ export function UsersList() {
   })
 
   const filteredUsers = users?.filter(
-    (user) =>
-      user.name.toLowerCase().includes(search.toLowerCase()) || user.email.toLowerCase().includes(search.toLowerCase()),
+    (user: any) => {
+      const name = user.name || user.username || '';
+      const email = user.email || '';
+      return name.toLowerCase().includes(search.toLowerCase()) || email.toLowerCase().includes(search.toLowerCase());
+    }
   )
 
   const handleRoleChange = (userId: string, role: "admin" | "employee") => {
@@ -203,11 +206,11 @@ export function UsersList() {
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
                           <span className="text-sm font-semibold text-white">
-                            {user.name.charAt(0).toUpperCase()}
+                            {(user.name || user.username || '?').charAt(0).toUpperCase()}
                           </span>
                         </div>
                         <div>
-                          <p className="font-medium text-neutral-900 dark:text-neutral-50">{user.name}</p>
+                          <p className="font-medium text-neutral-900 dark:text-neutral-50">{user.name || user.username}</p>
                           <p className="text-sm text-neutral-500 dark:text-neutral-400">{user.email}</p>
                         </div>
                       </div>
@@ -253,7 +256,7 @@ export function UsersList() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-neutral-500 dark:text-neutral-400">
-                      {user.createdAt.toLocaleDateString("fr-FR")}
+                      {new Date(user.createdAt).toLocaleDateString("fr-FR")}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-end gap-3">
